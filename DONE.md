@@ -138,8 +138,36 @@ This document tracks major completed features and milestones during the developm
 *   **TypeScript Fixes:**
     *   Corrected TypeScript errors in `app/page.tsx` (`fetchTasks`) related to appending array values (`string[]`) from multi-select filters (portfolio, project, section) to `URLSearchParams`.
 
+## 2025-04-23: o4-mini Tool Update Workaround & Context Helper
+
+*   **Implemented Workaround for o4-mini Tool Usage:**
+    *   Due to issues with `o4-mini` and streaming tool calls (`streamText`), implemented a non-streaming alternative.
+    *   **Frontend (`AIChatInterface.tsx`):** Added logic to `handleUpdateClick`. When `o4-mini` is selected, it makes a direct `fetch` POST request to `/api/ai/chat` with an `isManualToolUpdate: true` flag, sending messages and task context.
+    *   **Backend (`/api/ai/chat/route.ts`):** Added conditional logic. If `isManualToolUpdate` is true and model is `o4-mini`, uses `generateText` to get the response/tool call, executes `updateTaskFieldsTool` using `executeTaskUpdate`, and returns a JSON response.
+*   **Created Context Helper (`/lib/ai/contextHelper.ts`):**
+    *   Added the `getContextForTask` function to fetch task details from Prisma based on `taskId`.
+    *   Formats task details (name, status, priority, due date, etc.) into a string to prepend to the AI prompt, ensuring the AI has current task context.
+*   **Fixes:** Resolved various import errors, type errors, and incorrect Prisma field name usage during implementation.
+
+## Session: 2025-04-24 (Approx. 13:00 - 13:22)
+
+*   **AI Chat Parameter Refinement:**
+    *   Successfully configured the `AIChatInterface.tsx` component and the `/api/ai/chat` backend route to handle AI model parameters (`maxTokens`, `temperature`, `reasoningEffort`) correctly.
+    *   Implemented conditional logic in `AIChatInterface.tsx` to send the `maxTokens` parameter **only** when the `gpt-4.1` model (`MODEL_IDS.GPT41`) is selected. `maxTokens` is sent at the top level of the request body.
+    *   Ensured `temperature` and `reasoningEffort` are consistently sent within the `providerOptions` object when supported by the selected model.
+    *   Debugged initial issues related to `maxTokens` not being included in the request payload.
+    *   Fixed a typo (`MODEL_IDS.GPT_4_1` vs `MODEL_IDS.GPT41`) in the conditional logic within `AIChatInterface.tsx`.
+    *   Validated successful parameter passing via browser developer tools (network tab) and backend logs.
+
 ## Completed Milestones & Tasks Log
 
+*   **[2025-04-24]** AI - Task Update Tool (`updateTaskFields`) Implementation:
+    *   Successfully integrated the Vercel AI SDK `tool` capability into the `/api/ai/chat` route.
+    *   Created `lib/ai/dynamicToolSchema.ts` to generate a Zod schema for tool parameters based on `TASK_FIELD_CONFIG.ts`.
+    *   Created `lib/ai/tools/updateTaskFields.ts` containing the Prisma logic to execute task updates.
+    *   Configured the API route to fetch task context and pass the `updateTaskFields` tool to the `streamText` function with `maxSteps` enabled.
+    *   Resolved associated TypeScript errors.
+    *   The AI can now understand requests to modify task fields within a task's context and execute those changes via the defined tool.
 *   **[2025-04-22 16:28]** Refined `csv_field_documentation.md` and `csv_input_form_documentation.md` for clarity and AI interaction detail.
 *   **[2025-04-22 17:40]** Created `prisma/seed.ts` for the development database with detailed seed data.
 *   **[2025-04-22 20:10]** Enhanced CSV import functionality to use commas as column delimiters and semicolons as value separators within multi-select fields.
@@ -149,11 +177,21 @@ This document tracks major completed features and milestones during the developm
 *   **[2025-04-23]** Fixed type mismatch errors in backend boolean field search logic.
 *   **[2025-04-23]** Integrated search input and reset functionality into `FilterBar.tsx` component.
 *   **[2025-04-23]** Debugged and resolved frontend state management issues related to clearing/resetting the search filter in `FilterBar.tsx` and `app/page.tsx` (`handleFilterChange`), ensuring correct task list updates.
+*   **[2025-04-23]** Refined Task Field Config (`config/TASK_FIELD_CONFIG.ts`) for AI compatibility: Changed `dependents` and verified `related_tasks` are `textarea` type without `getOptions`.
+*   **[2025-04-24]** Fixed Task Detail Save Error: Corrected date field processing in the backend API (`app/api/tasks/[id]/route.ts` - PATCH) to handle date strings and invalid dates properly before updating Prisma.
+
+## Phase 1: MVP Setup & Core Task CRUD
+
+*   **T1: Project Setup & Basic Structure** - Completed [Date]
+*   **T2: Implement Core Task Model & DB** - Completed [Date]
+*   **T3: Implement Basic Task CRUD API & UI** - Completed [Date]
+*   **T4: Implement Basic AI Chat Interaction (Global)** - Completed 2025-04-24
 
 ---
 
 *(Future entries will be added below as phases/features are completed)*
 
+_Last updated: 2025-04-24 (AI Chat Parameter Refinement)_
 _Last updated: 2025-04-22 (Verified DELETE API Endpoint and Removed Redundant Route)_
 _Last updated: 2025-04-22 (Task Deletion System)_
 _Last updated: 2025-04-22 (Implemented CSV Import API)_
@@ -162,3 +200,4 @@ _Last updated: 2025-04-22 (Refined csv_field_documentation.md and csv_input_form
 _Last updated: 2025-04-22 (Created prisma/seed.ts)_
 _Last updated: 2025-04-23 (React/Next.js Fixes and TypeScript Fixes)_
 _Last updated: 2025-04-23 (Full-text Search Implementation)_
+_Last updated: 2025-04-23 (o4-mini Tool Update Workaround & Context Helper)_

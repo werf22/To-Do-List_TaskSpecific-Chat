@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Lint ID: 9caa5c85-3120-42d1-ab1d-3ea9108aaa61
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import type { Task } from '@prisma/client';
@@ -8,6 +8,8 @@ import { TASK_FIELD_CONFIG } from '@/config/TASK_FIELD_CONFIG';
 import MultiSelect from '@/components/ui/MultiSelect';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select'; // Corrected casing
 import TaskDetailContent from '@/components/TaskDetailContent';
+import { Button } from '@/components/ui/button'; // Import Button
+import { AIChatInterface } from '@/components/AIChatInterface'; // Changed to named import
 
 // Type of the parameters received by the page component
 interface TaskDetailPageProps {
@@ -78,13 +80,13 @@ export default function TaskDetailPage() {
   }, [id]);
 
   // Handle field change in edit mode
-  const handleFieldChange = (fieldName: string, newValue: any) => {
+  const handleFieldChange = useCallback((fieldName: string, newValue: any, fieldType?: string) => {
     console.log(`Changing field ${fieldName} to:`, newValue);
-    setEditedTask((prev) => ({
+    setEditedTask((prev: Partial<Task>) => ({
       ...prev,
       [fieldName]: newValue,
     }));
-  };
+  }, []);
 
   // Save changes to the task
   const handleSave = async () => {
@@ -345,7 +347,7 @@ export default function TaskDetailPage() {
         return (
           <Select
             value={currentValue ?? ''} // Use correct value prop, handle undefined
-            onValueChange={(value) => handleFieldChange(fieldName, value === '' ? undefined : value)} // Use correct handler prop
+            onValueChange={(value: string) => handleFieldChange(fieldName, value === '' ? undefined : value)} // Use correct handler prop
           >
             <SelectTrigger>
               <SelectValue placeholder={config.label || `Select ${fieldName}...`} />
@@ -365,7 +367,7 @@ export default function TaskDetailPage() {
           <MultiSelect
             label=""
             value={currentMultiValue || []}
-            onChange={(newValue) => handleFieldChange(fieldName, newValue)}
+            onChange={(newValue: string[]) => handleFieldChange(fieldName, newValue)}
             options={config.options || []}
             placeholder={`Select ${config.label}...`}
           />
@@ -565,7 +567,7 @@ export default function TaskDetailPage() {
             {task.portfolio && task.portfolio.length > 0 && (
               <div className="flex flex-wrap items-center gap-1">
                 <span>Portfolio:</span>
-                {task.portfolio.map((p, idx) => (
+                {task.portfolio.map((p: string, idx: number) => (
                   <span key={idx} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
                     {p}
                   </span>
@@ -575,7 +577,7 @@ export default function TaskDetailPage() {
             {task.project && task.project.length > 0 && (
               <div className="flex flex-wrap items-center gap-1 mt-1">
                 <span>Project:</span>
-                {task.project.map((p, idx) => (
+                {task.project.map((p: string, idx: number) => (
                   <span key={idx} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded">
                     {p}
                   </span>
@@ -585,7 +587,7 @@ export default function TaskDetailPage() {
             {task.section && task.section.length > 0 && (
               <div className="flex flex-wrap items-center gap-1 mt-1">
                 <span>Section:</span>
-                {task.section.map((s, idx) => (
+                {task.section.map((s: string, idx: number) => (
                   <span key={idx} className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded">
                     {s}
                   </span>
@@ -656,6 +658,14 @@ export default function TaskDetailPage() {
         renderField={renderField}
         formatFieldValue={formatFieldValue}
       />
+      
+      {/* --- AI Chat Interface --- */}
+      {id && (
+        <div className="mt-8 pt-6 border-t">
+          <h2 className="text-xl font-semibold mb-4">AI Task Assistant</h2>
+          <AIChatInterface taskId={id} taskData={task} />
+        </div>
+      )}
     </div>
   );
 }

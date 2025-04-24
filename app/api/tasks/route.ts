@@ -17,7 +17,8 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   
   // Extract all possible filter parameters
-  const taskId = url.searchParams.get('taskId');
+  const taskIdParam = url.searchParams.get('task_id'); // Read the optional task_id param
+  const idParam = url.searchParams.get('id'); // Keep reading the primary id param too
   
   const portfolio = url.searchParams.get('portfolio');
   const project = url.searchParams.get('project');
@@ -241,6 +242,12 @@ export async function GET(request: Request) {
       }
 
       // Simple Equality/Dropdown Filters
+      if (idParam) {
+        whereClause.id = idParam;
+      }
+      if (taskIdParam) { // Filter by the optional task_id if provided
+        whereClause.task_id = taskIdParam;
+      }
       if (portfolio) {
         whereClause.portfolio = { has: portfolio }; // Assuming single select for portfolio
       }
@@ -319,11 +326,6 @@ export async function GET(request: Request) {
       }
       if (Object.keys(budgetFilters).length > 0) {
         whereClause.estimated_cost_budget = budgetFilters;
-      }
-
-      // Specific Task ID Filter
-      if (taskId) {
-        whereClause.id = taskId; // Filter by specific task ID if provided
       }
 
       console.log("Constructed whereClause BEFORE findMany:", JSON.stringify(whereClause, null, 2));

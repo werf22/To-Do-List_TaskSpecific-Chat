@@ -13,6 +13,7 @@ This project aims to create a highly efficient, minimalist, and reliable alterna
 *   Clear hierarchical task view (Portfolio -> Project -> Section -> Task).
 *   Detailed task view displaying all custom fields.
 *   Contextual AI chat assistance (both globally and per-task).
+    *   **[ENHANCED 2025-04-24]** Model parameter handling (`maxTokens`, `temperature`, `reasoningEffort`) refined, sending `maxTokens` conditionally only for compatible models (e.g., `gpt-4.1`).
 *   Advanced filtering and sorting by any task field.
 *   CSV data export.
 *   Responsive design for desktop (Macbook) and mobile (iPhone).
@@ -91,10 +92,21 @@ All files were reviewed and placed according to the latest documentation and pro
 - **2025-04-22:** Implemented comprehensive task deletion functionality with individual and batch operations
 - **2025-04-22:** Created emergency task deletion system with direct database access for handling edge cases
 
+## Current Status (as of 2025-04-23)
+
+*   Basic Task CRUD operations implemented (API and basic UI table).
+*   Task Tree View implemented.
+*   CSV Import functionality added (`/api/csv/import`).
+*   AI Chat Interface (`AIChatInterface.tsx`) integrated using Vercel AI SDK (`useChat`).
+*   Tool use implemented for updating task fields via AI (`updateTaskFieldsTool`).
+*   **Workaround for `o4-mini` tool usage implemented:** Added a non-streaming flow (`generateText`) for `o4-mini` triggered by a dedicated button, as `streamText` had issues with tool calls for this model. Includes a new `contextHelper.ts` for providing task context.
+*   **Next Step:** Thoroughly test the `o4-mini` workaround flow.
+
 ## Recent Activity (2025-04-23)
 
 *   Focused on debugging and fixing several React lifecycle errors (update during render, max update depth), hydration mismatches, and TypeScript type errors primarily affecting the filtering system (`FilterBar`, `HomePage`) and the task detail page (`TaskDetailPage`).
 *   The application should now be more stable regarding these issues. Next steps involve testing these fixes.
+*   Refined `config/TASK_FIELD_CONFIG.ts` to ensure `dependents` and `related_tasks` use the `textarea` type for better AI text processing compatibility.
 
 ## Getting Started
 

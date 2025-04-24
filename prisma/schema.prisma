@@ -102,6 +102,7 @@ model Task {
   related_projects          String[]                       // From config: related_projects (Multi-select -> String Array)
   related_sections          String[]                       // From config: related_sections (Multi-select -> String Array)
   related_entities          String[]                       // From config: related_entities (Multi-select -> String Array of names/orgs)
+  related_entity            String?                      // From config: related_entity (Single primary person/org)
   target_audience           String?   @db.Text             // From config: target_audience
   task_purpose              String?   @db.Text             // From config: task_purpose (Why)
   expected_impact_success_metric String? @db.Text          // From config: expected_impact_success_metric

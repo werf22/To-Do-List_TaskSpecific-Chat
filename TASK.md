@@ -102,6 +102,32 @@ Create a custom AI-powered Task Management web application based on the specific
 
 *   **UI/UX Refinements:** Continue general improvements to layout, styling, and user interaction based on `TASK_FIELD_CONFIG` and feedback.
 *   **FilterBar Enhancements:** Further refine filter interactions, possibly adding more advanced filter types or improving existing ones.
+*   **Task:** Test and Verify `o4-mini` Tool Update Workaround
+
+**Context:**
+Implemented a non-streaming workaround for `o4-mini` tool updates using `generateText` in the backend, triggered by a manual fetch from the frontend. Also created `/lib/ai/contextHelper.ts` to provide task context.
+
+**Goal:** Ensure the workaround functions correctly and resolves the previous issues with `o4-mini` tool calls.
+
+**Steps / Verification:**
+1.  Run the application (`npm run dev`).
+2.  Select the `o4-mini` model in the AI Chat Interface.
+3.  Load a specific task.
+4.  Ask the AI to update a field (e.g., change priority, description).
+5.  Click the "Update Task" button.
+6.  **Check Frontend:** Observe the loading state (`isManualUpdating`) and the final response from the AI (should confirm update or report error).
+7.  **Check Browser Console:** Verify the `[AIChatInterface] Manual Update Payload:` log shows `model: 'o4-mini'` and `isManualToolUpdate: true`.
+8.  **Check Terminal Logs:**
+    *   Verify the `[API Route] Received Raw Body:` and `[API Route] Parsed Data Object:` logs show the correct model and `isManualToolUpdate: true`.
+    *   Verify the `Using AI Model:` log shows `o4-mini`.
+    *   Verify the `Context Helper: Task with ID ...` log appears if the task is found (or warning if not).
+    *   Verify the `Handling manual tool update for o4-mini...` log appears.
+    *   Verify the `Update tool called with args:` log shows the arguments extracted by `generateText`.
+    *   Verify the `Executing task update...` and `Task update result:` logs appear from `executeTaskUpdate`.
+    *   Confirm no new errors related to the API call or tool execution.
+9.  **Check Linting:** Confirm the persistent import error for `contextHelper.ts` in `app/api/ai/chat/route.ts` is resolved after the last server restart.
+
+**Next:** If testing is successful, proceed with planned features. If issues persist, debug based on logs.
 
 ## Recently Completed (to be moved to DONE.md upon verification)
 
@@ -112,6 +138,17 @@ Create a custom AI-powered Task Management web application based on the specific
     *   Implemented Filter Reset functionality in `FilterBar.tsx`.
     *   Debugged frontend state management issues in `FilterBar.tsx` and `app/page.tsx` (`handleFilterChange`) to ensure search terms are correctly added and removed from the filter state, resolving issues where clearing the search or resetting filters did not properly update the task list.
 *   **Task Tree View:** Implemented `/components/task-tree.tsx` to display tasks hierarchically.
+*   **[COMPLETED 2025-04-23] Refine Task Field Config for AI:**
+    *   Modified `config/TASK_FIELD_CONFIG.ts` to ensure fields intended for AI text interaction (`dependents`, `related_tasks`) use the `textarea` type.
+    *   Verified that these fields do not use the `getOptions` function, simplifying AI input/output handling.
+*   **[COMPLETED] AI - Task Update Tool (`updateTaskFields`) Implementation:**
+    *   Created and integrated the Vercel AI SDK tool definition (`tool`) that allows the AI to modify task fields based on conversation. This involved:
+        *   Creating a dynamic Zod schema (`lib/ai/dynamicToolSchema.ts`) based on `TASK_FIELD_CONFIG.ts` for tool parameters.
+        *   Implementing the tool's `execute` function (`lib/ai/tools/updateTaskFields.ts`) using Prisma to update the database.
+        *   Integrating the tool definition into the `/api/ai/chat` route (`streamText` call).
+        *   Ensuring the API route fetches task context (`getContextForTask`) when `taskId` is provided.
+        *   Setting `maxSteps` in `streamText` to allow tool execution + follow-up response.
+        *   Resolving TypeScript errors related to tool implementation.
 
 ---
 
@@ -172,3 +209,87 @@ Create a custom AI-powered Task Management web application based on the specific
 *   [ ] Refine Prisma schema based on testing/development (`schema.prisma`).
 *   [ ] Refine Task Field Configuration (`TASK_FIELD_CONFIG.ts`).
 *   [X] Update project documentation (`README.md`, `PLANNING.md`, `TASK.md`, `DONE.md`, `PROJECTS_FILE_STRUCTURE_DOCUMENTATION.md`) - *Ongoing*
+
+**Phase 2: UI Enhancements & Core Features**
+
+*   [ ] Backend: Implement AI enrichment service and integrate with task creation.
+*   [ ] API: Add AI trigger to POST /api/tasks.
+*   [ ] Backend: Create AI workflow processing system.
+*   [ ] Frontend: Create AI settings and controls panel.
+*   [x] Frontend: Implement Task Hierarchy TreeView.
+*   [ ] Frontend: Implement sorting functionality for task lists.
+*   [ ] Backend/Scripting: Create a database seeding script (`prisma/seed.ts`) to populate the DB with realistic test data (portfolios, projects, sections, tasks, subtasks).
+*   [ ] UX: Add toast notifications for actions.
+*   [ ] Testing: Add comprehensive unit and integration tests.
+
+**Phase 3: Advanced Features & AI Interaction**
+
+*   [ ] Frontend: Create basic AI Chat Interface (`components/AIChatInterface.tsx`).
+    *   [x] Basic chat UI (message display, input field).
+    *   [x] Connect to `/api/ai/chat` using `@ai-sdk/react`'s `useChat` hook.
+    *   [x] Allow model selection (`o4-mini`, `gpt-4.1`).
+    *   [x] Implement controls for AI parameters (Temperature, Max Tokens, Reasoning Effort) based on model capabilities defined in `aiConfig.ts`.
+    *   [x] **Parameter Handling (maxTokens, temperature, reasoningEffort):**
+        *   Successfully implemented sending `temperature` and `reasoningEffort` within `providerOptions` to the backend API (`/api/ai/chat`).
+        *   Successfully implemented sending `maxTokens` **only** when the `gpt-4.1` model (`MODEL_IDS.GPT41`) is selected. This parameter is sent at the top level of the request body.
+        *   Debugged and fixed initial issues where `maxTokens` wasn't sent correctly or was sent for the wrong model.
+        *   Corrected a typo (`GPT_4_1` vs `GPT41`) in the conditional logic within `AIChatInterface.tsx`.
+*   [ ] Backend: Implement basic API endpoint for AI chat interaction (`app/api/ai/chat/route.ts`).
+*   [ ] Frontend: Create dashboard with task statistics.
+*   [ ] Frontend: Add customizable views/layouts.
+*   [x] Backend: Implement full text search across tasks.
+*   [ ] API: Create endpoints for batch operations.
+*   [ ] Frontend: Add keyboard shortcuts for power users.
+*   [ ] Backend: Implement more sophisticated background processing.
+*   [ ] UX: Implement drag-and-drop for task organization.
+*   [ ] System: Add performance optimizations.
+
+---
+
+## Current Focus (Phase 1 - MVP Core)
+
+*   **T3: Implement Task Detail View & Edit:**
+    *   Display all task fields based on `TASK_FIELD_CONFIG`.
+    *   Allow editing of all fields.
+    *   Implement Save/Cancel functionality.
+    *   **Fix Task Detail Save Error:** Investigate and resolve the error occurring when saving changes in the task detail view. - **IN PROGRESS / FIXED** (Applied fix to backend API date handling in `app/api/tasks/[id]/route.ts`)
+*   **T4: Implement Basic AI Chat Interaction (Global)** **DONE (2025-04-24)**
+    *   Create a simple global AI chat API endpoint (`/api/ai/global-chat`).
+    *   Create a basic chat UI component (`GlobalChatInterface.tsx`).
+    *   Integrate chat UI into the main layout.
+*   **T5: Implement Task-Specific AI Chat** **<-- NEXT**
+    *   Integrate the existing `AIChatInterface.tsx` into the task detail page.
+    *   Ensure `AIChatInterface.tsx` correctly passes `taskId` and context to the task-specific API (`/api/ai/chat`).
+    *   Verify the `updateTaskFields` tool works correctly from the task chat.
+    *   Test interaction: ask AI about the task, ask it to update fields.
+
+### Phase 1: MVP Setup & Core Task CRUD
+
+*   [x] **T1: Project Setup & Basic Structure**
+    *   [x] Initialize Next.js project with TypeScript.
+    *   [x] Setup Prisma ORM, connect to database.
+    *   [x] Install Shadcn/UI and basic dependencies.
+    *   [x] Define initial file structure (`PROJECTS_FILE_STRUCTURE_DOCUMENTATION.md`).
+*   [x] **T2: Implement Core Task Model & DB**
+    *   [x] Define `Task` model in `prisma/schema.prisma` based on initial `TASK_FIELD_CONFIG.ts`.
+    *   [x] Run initial Prisma migration.
+    *   [x] Create `csv_field_documentation.csv`.
+*   [x] **T3: Implement Basic Task CRUD API & UI**
+    *   [x] Create API routes for basic CRUD (`/api/tasks`).
+    *   [x] Create main task list page (`/app/tasks/page.tsx`).
+    *   [x] Create task detail page (`/app/tasks/[id]/page.tsx`).
+    *   [x] Implement UI components for listing, viewing, creating, editing (basic fields), deleting tasks.
+    *   [x] Fix task saving issues (date handling, body unusable error).
+*   [x] ~~**T4: Implement Basic AI Chat Interaction (Global)**~~ **DONE (2025-04-24)**
+    *   [x] Create a simple global AI chat API endpoint (`/api/ai/global-chat`).
+    *   [x] Create a basic chat UI component (`GlobalChatInterface.tsx`).
+    *   [x] Integrate chat UI into the main layout.
+*   [ ] **T5: Implement Task-Specific AI Chat** **<-- NEXT**
+    *   [ ] Integrate the existing `AIChatInterface.tsx` into the task detail page.
+    *   [ ] Ensure `AIChatInterface.tsx` correctly passes `taskId` and context to the task-specific API (`/api/ai/chat`).
+    *   [ ] Verify the `updateTaskFields` tool works correctly from the task chat.
+    *   [ ] Test interaction: ask AI about the task, ask it to update fields.
+
+### Phase 2: AI Integration & Feature Enhancement
+
+*   [ ] **T6: Implement AI Task Creation/Parsing**

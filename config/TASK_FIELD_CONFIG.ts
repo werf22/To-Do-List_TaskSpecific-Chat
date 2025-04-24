@@ -5,13 +5,12 @@
 export interface TaskFieldConfig {
     label: string;
     // Types adjusted for single-table/CSV approach:
-    // 'multi-select' implies UI handling, stored as TEXT (e.g., comma-separated).
-    // 'textarea' for multi-line text.
-    // 'text' for single-line text or IDs.
-    // 'dropdown' stored as TEXT.
-    // 'date' stored as TIMESTAMP/DATE string.
-    // 'number' stored as NUMBER or TEXT.
-    type: 'text' | 'textarea' | 'dropdown' | 'multi-select' | 'date' | 'number' | 'checkbox';
+    // Include all types actually used in the config object below
+    // and potentially handled in the dynamic schema generator.
+    type: 'text' | 'textarea' | 'dropdown' | 'multi-select' | 'date' | 'number' | 'checkbox' 
+          | 'url' | 'email' | 'phone' | 'ai_generated' | 'currency' | 'rating' 
+          | 'datetime' | 'progress' | 'readonly' | 'divider' | 'file' | 'subtasks' 
+          | 'tags'; // Added 'tags' as it was checked in the switch
     options?: string[];
     // Dynamically get options based on other selections (now expects arrays or undefined)
   getOptions?: (selectedPortfolios?: string[] | undefined, selectedProjects?: string[] | undefined) => string[];
@@ -1028,8 +1027,8 @@ export interface TaskFieldConfig {
       type: 'dropdown', // Alebo multi-select, ak môže mať viac aspektov
       options: [ // Doplnené options z tagov pre financie
         "Žiadny", // Predvolené
-        "#Fin:Príjem", "#Fin:Výdavok", "#Fin:Investícia", "#Fin:PresunPeniazí",
-        "#Fin:Budgeting", "#Fin:CashflowRelevantné", "#Fin:DaňovoRelevantné"
+        "Fin:Príjem", "Fin:Výdavok", "Fin:Investícia", "Fin:PresunPeniazí",
+        "Fin:Budgeting", "Fin:CashflowRelevantné", "Fin:DaňovoRelevantné"
       ],
       editable: true,
       description: 'Rýchla identifikácia úloh s finančným dopadom.',

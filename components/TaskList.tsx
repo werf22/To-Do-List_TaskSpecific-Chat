@@ -5,6 +5,7 @@ import Link from 'next/link'; // Import Link for navigation
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Circle, Trash2 } from 'lucide-react';
 import DeleteButton from './DeleteButton'; // Import the new DeleteButton component
+import { useToast } from '@/components/hooks/use-toast'; // Correct import path
 
 // Define the props this component expects
 interface TaskListProps {
@@ -14,6 +15,7 @@ interface TaskListProps {
 
 export default function TaskList({ tasks, onTasksChanged }: TaskListProps) {
   const router = useRouter();
+  const { toast } = useToast(); // Initialize useToast
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMarkingComplete, setIsMarkingComplete] = useState(false);
@@ -84,10 +86,18 @@ export default function TaskList({ tasks, onTasksChanged }: TaskListProps) {
         onTasksChanged();
       }
       
-      alert(`Successfully deleted ${successCount} task(s)${failCount > 0 ? `, failed to delete ${failCount} task(s)` : ''}`);
+      toast({ // Success toast
+        title: "Tasks Deleted",
+        description: `Successfully deleted ${successCount} task(s).${failCount > 0 ? ` Failed to delete ${failCount}.` : ''}`,
+        variant: failCount > 0 ? "destructive" : "default", // Use destructive variant if any failed
+      });
     } catch (error) {
       console.error('Error in delete operation:', error);
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast({ // Error toast
+        title: "Error Deleting Tasks",
+        description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        variant: "destructive",
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -126,7 +136,11 @@ export default function TaskList({ tasks, onTasksChanged }: TaskListProps) {
       }
     } catch (error) {
       console.error('Error updating tasks:', error);
-      alert('Failed to update tasks. Please try again.');
+      toast({ // Error toast for update
+        title: "Error Updating Tasks",
+        description: "Failed to update tasks. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsMarkingComplete(false);
     }
@@ -157,7 +171,11 @@ export default function TaskList({ tasks, onTasksChanged }: TaskListProps) {
       }
     } catch (error) {
       console.error('Error updating task:', error);
-      alert('Failed to update task. Please try again.');
+      toast({ // Error toast for single update
+        title: "Error Updating Task",
+        description: "Failed to update the task. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -181,13 +199,25 @@ export default function TaskList({ tasks, onTasksChanged }: TaskListProps) {
         if (onTasksChanged) {
           onTasksChanged();
         }
+        toast({ // Success toast for single delete
+          title: "Task Deleted",
+          description: "The task has been successfully deleted.",
+        });
       } else {
         console.error(`Failed to delete task ${taskId}`);
-        alert('Failed to delete task. Please try again.');
+        toast({ // Error toast for single delete failure
+          title: "Error Deleting Task",
+          description: "Failed to delete the task. Please try again.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error deleting task:', error);
-      alert('Failed to delete task. Please try again.');
+      toast({ // Error toast for single delete exception
+        title: "Error Deleting Task",
+        description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        variant: "destructive",
+      });
     } finally {
       setIsDeleting(false);
     }

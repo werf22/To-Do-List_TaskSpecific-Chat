@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "@/components/ui/toaster";
+import { GlobalChatInterface } from '@/components/GlobalChatInterface';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,7 +18,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning={true}>
-      <body>{children}</body>
+      {/* Use flex layout for body */}
+      <body className={`${inter.className} flex h-screen overflow-hidden`}>
+        {/* Main content area */}
+        <main className="flex-1 overflow-y-auto p-4">
+            {children}
+        </main>
+        {/* Fixed Sidebar for Global Chat */}
+        <aside className="w-96 border-l border-border h-full flex flex-col">
+          <GlobalChatInterface />
+        </aside>
+        <Toaster />
+      </body>
     </html>
   )
 }

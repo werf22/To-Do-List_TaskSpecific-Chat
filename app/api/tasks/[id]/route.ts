@@ -2,21 +2,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-type RouteParams = {
-  params: {
-    id: string;
-  };
-}
-
 /**
  * GET handler to fetch a specific task by ID
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  console.log(`GET /api/tasks/${params.id} called`);
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: { id: string } } 
+) {
+  const taskId = params.id;
+  console.log(`GET /api/tasks/${taskId} called`);
   
   try {
     // Validate task ID
-    const taskId = params.id;
     if (!taskId) {
       return NextResponse.json({ error: 'Task ID is required' }, { status: 400 });
     }
@@ -36,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Return the task
     return NextResponse.json(task);
   } catch (error: any) {
-    console.error(`API Error: Failed to fetch task ${params.id}:`, error);
+    console.error(`API Error: Failed to fetch task ${taskId}:`, error);
     return NextResponse.json(
       { error: 'Internal Server Error: Could not fetch task.' },
       { status: 500 }
@@ -47,12 +44,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 /**
  * PATCH handler to update a specific task by ID
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  console.log(`PATCH /api/tasks/${params.id} called`);
+export async function PATCH(
+  request: NextRequest, 
+  { params }: { params: { id: string } } 
+) {
+  const taskId = params.id;
+  console.log(`PATCH /api/tasks/${taskId} called`);
   
   try {
     // Validate task ID
-    const taskId = params.id;
     if (!taskId) {
       return NextResponse.json({ error: 'Task ID is required' }, { status: 400 });
     }
@@ -197,25 +197,39 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     });
 
-    console.log("After processing, updateData:", JSON.stringify(updateData, null, 2));
+    console.log("After processing arrays, updateData:", JSON.stringify(updateData, null, 2));
 
     // Process date fields
     const dateFields = ['due_date', 'start_date', 'created_at', 'completed_at', 'last_modified_at'];
     
     dateFields.forEach(field => {
-      if (updateData[field] !== undefined) {
-        if (updateData[field] && typeof updateData[field] === 'string') {
-          try {
-            updateData[field] = new Date(updateData[field]);
-          } catch (e) {
-            console.warn(`Could not parse date field ${field}:`, e);
-            // Keep as string if parsing fails
+      if (updateData.hasOwnProperty(field)) { 
+        const value = updateData[field];
+
+        if (value === null || value === '' || value === undefined) {
+          updateData[field] = null; 
+        } else if (typeof value === 'string') {
+          const parsedDate = new Date(value);
+
+          if (!isNaN(parsedDate.getTime())) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+               const [year, month, day] = value.split('-').map(Number);
+               updateData[field] = new Date(Date.UTC(year, month - 1, day));
+            } else {
+               updateData[field] = parsedDate; 
+            }
+          } else {
+            console.warn(`Invalid date string received for field ${field}: "${value}". Setting to null.`);
+            updateData[field] = null; 
           }
-        } else if (updateData[field] === null || updateData[field] === '') {
-          updateData[field] = null;
+        } else if (!(value instanceof Date)) {
+           console.warn(`Unexpected type for date field ${field}: ${typeof value}. Setting to null.`);
+           updateData[field] = null;
         }
       }
     });
+
+    console.log("After processing dates, updateData:", JSON.stringify(updateData, null, 2));
 
     // Allow updating task_id field
     if (updateData.task_id !== undefined) {
@@ -236,7 +250,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Return the updated task
     return NextResponse.json(updatedTask);
   } catch (error: any) {
-    console.error(`API Error: Failed to update task ${params.id}:`, error);
+    console.error(`API Error: Failed to update task ${taskId}:`, error);
     
     // Handle specific error types
     if (error.code === 'P2025') {
@@ -253,33 +267,37 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 /**
  * DELETE handler to delete a specific task by ID
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(
+  request: NextRequest, 
+  { params }: { params: { id: string } } 
+) {
+  await request.text(); // Ensure request is consumed before accessing params
   const taskId = params.id;
-  console.log(`[API DELETE /api/tasks/${taskId}] Received request.`); // <-- Log: Request received
+  console.log(`DELETE /api/tasks/${taskId} called`);
 
   if (!taskId) {
-    console.log(`[API DELETE /api/tasks/${taskId}] Error: Task ID is missing.`);
+    console.log(`DELETE /api/tasks/${taskId} Error: Task ID is missing.`);
     return NextResponse.json({ error: 'Task ID is required' }, { status: 400 });
   }
 
   try {
-    console.log(`[API DELETE /api/tasks/${taskId}] Attempting to delete task from database...`); // <-- Log: Prisma call attempt
+    console.log(`DELETE /api/tasks/${taskId} Attempting to delete task from database...`);
     await prisma.task.delete({
       where: { id: taskId },
     });
-    console.log(`[API DELETE /api/tasks/${taskId}] Task successfully deleted from database.`); // <-- Log: Prisma success
+    console.log(`DELETE /api/tasks/${taskId} Task successfully deleted from database.`);
     return NextResponse.json({ success: true, message: 'Task deleted successfully' });
   } catch (error: any) {
-    console.error(`[API DELETE /api/tasks/${taskId}] Error during database deletion:`, error); // <-- Log: Prisma error
+    console.error(`DELETE /api/tasks/${taskId} Error during database deletion:`, error);
 
     // Handle specific Prisma errors if needed
     if (error.code === 'P2025') { // Record to delete does not exist
-      console.log(`[API DELETE /api/tasks/${taskId}] Error: Task not found.`);
+      console.log(`DELETE /api/tasks/${taskId} Error: Task not found.`);
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
     // Generic server error
-    console.log(`[API DELETE /api/tasks/${taskId}] Returning generic 500 error.`);
+    console.log(`DELETE /api/tasks/${taskId} Returning generic 500 error.`);
     return NextResponse.json({ error: 'Failed to delete task', details: error.message || 'Unknown error' }, { status: 500 });
   }
 }
