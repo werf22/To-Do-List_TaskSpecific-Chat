@@ -103,31 +103,7 @@ Create a custom AI-powered Task Management web application based on the specific
 *   **UI/UX Refinements:** Continue general improvements to layout, styling, and user interaction based on `TASK_FIELD_CONFIG` and feedback.
 *   **FilterBar Enhancements:** Further refine filter interactions, possibly adding more advanced filter types or improving existing ones.
 *   **Task:** Test and Verify `o4-mini` Tool Update Workaround
-
-**Context:**
-Implemented a non-streaming workaround for `o4-mini` tool updates using `generateText` in the backend, triggered by a manual fetch from the frontend. Also created `/lib/ai/contextHelper.ts` to provide task context.
-
-**Goal:** Ensure the workaround functions correctly and resolves the previous issues with `o4-mini` tool calls.
-
-**Steps / Verification:**
-1.  Run the application (`npm run dev`).
-2.  Select the `o4-mini` model in the AI Chat Interface.
-3.  Load a specific task.
-4.  Ask the AI to update a field (e.g., change priority, description).
-5.  Click the "Update Task" button.
-6.  **Check Frontend:** Observe the loading state (`isManualUpdating`) and the final response from the AI (should confirm update or report error).
-7.  **Check Browser Console:** Verify the `[AIChatInterface] Manual Update Payload:` log shows `model: 'o4-mini'` and `isManualToolUpdate: true`.
-8.  **Check Terminal Logs:**
-    *   Verify the `[API Route] Received Raw Body:` and `[API Route] Parsed Data Object:` logs show the correct model and `isManualToolUpdate: true`.
-    *   Verify the `Using AI Model:` log shows `o4-mini`.
-    *   Verify the `Context Helper: Task with ID ...` log appears if the task is found (or warning if not).
-    *   Verify the `Handling manual tool update for o4-mini...` log appears.
-    *   Verify the `Update tool called with args:` log shows the arguments extracted by `generateText`.
-    *   Verify the `Executing task update...` and `Task update result:` logs appear from `executeTaskUpdate`.
-    *   Confirm no new errors related to the API call or tool execution.
-9.  **Check Linting:** Confirm the persistent import error for `contextHelper.ts` in `app/api/ai/chat/route.ts` is resolved after the last server restart.
-
-**Next:** If testing is successful, proceed with planned features. If issues persist, debug based on logs.
+    *   [x] **Completed:** Successfully tested the workaround for `o4-mini` tool updates using `generateText` in the backend, triggered by a manual fetch from the frontend.
 
 ## Recently Completed (to be moved to DONE.md upon verification)
 
@@ -149,6 +125,16 @@ Implemented a non-streaming workaround for `o4-mini` tool updates using `generat
         *   Ensuring the API route fetches task context (`getContextForTask`) when `taskId` is provided.
         *   Setting `maxSteps` in `streamText` to allow tool execution + follow-up response.
         *   Resolving TypeScript errors related to tool implementation.
+*   **[COMPLETED 2025-04-24] Fix `o4-mini` AI Tool Schema Compatibility:**
+    *   Identified two issues preventing `o4-mini` from using the `updateTaskFields` tool:
+        1.  Schema validation errors due to optional/nullable fields not having an explicit `type` key required by the model.
+        2.  After making fields required, encountered errors due to exceeding the ~500 total enum value limit for structured outputs (caused by fields like `tags`, `required_skills` having many options).
+    *   Modified `lib/ai/dynamicToolSchema.ts` (`createUpdateTaskSchema`):
+        *   For `o4-mini`, fields remain required and non-nullable.
+        *   For `o4-mini`, if a `dropdown`, `multi-select`, or `tags` field has > 50 options, its schema type is simplified to `z.string()` or `z.array(z.string())`, with options listed in the description.
+        *   For other models, fields remain optional/nullable for partial updates.
+    *   This successfully resolved both errors, enabling `o4-mini` to use the `updateTaskFields` tool.
+*   **[VERIFIED 2025-04-24]** `o4-mini` Tool Update Workaround (Non-streaming `generateText`) is functioning correctly.
 
 ---
 

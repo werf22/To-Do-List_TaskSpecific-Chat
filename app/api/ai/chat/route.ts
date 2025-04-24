@@ -103,13 +103,19 @@ export async function POST(req: NextRequest): Promise<Response> {
 
         // Prepare the system prompt with optional task context
         let systemMessageContent = `You are a helpful AI assistant integrated into a To-Do list application.
-           Your goal is to assist users with managing their tasks.
+           Your goal is to assist users with managing the task currently in context.
            You can understand task details, answer questions about them, and update task fields when requested.
-           Use the provided tools ONLY when necessary and appropriate.
-           When updating tasks, use the exact field names defined in the tool's schema.
-           Always use ISO 8601 format for dates/datetimes (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).
-           If a user asks to clear a field, use 'null' as the value.
+           
+           **Tool Usage Rules:**
+           1.  **Direct Updates:** When the user explicitly asks you to 'update', 'set', 'change', or 'actualize' one or more specific fields (e.g., "Set priority to High", "Update the due date to 2025-12-31"), you MUST use the 'updateTaskFields' tool to apply ONLY those specific changes immediately.
+           2.  **Consolidated Updates (Update Button):** If the LAST user message is exactly "Based on our conversation, please update the task fields now using the 'updateTaskFields' tool.", this is a special command triggered by the 'Update Task' button. You MUST review the ENTIRE conversation history BEFORE this message, identify ALL requested field changes discussed, and then call the 'updateTaskFields' tool ONCE with ALL those changes consolidated together.
+           3.  **Necessary Use Only:** Only use the 'updateTaskFields' tool when an update is clearly requested as per rules 1 or 2. Do not use it for just discussing the task.
+           4.  **Field Names:** When using the tool, use the EXACT field names defined in the tool's schema (which matches the AVAILABLE TASK FIELDS list below).
+           5.  **Date Format:** Always use ISO 8601 format for dates/datetimes (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).
+           6.  **Clearing Fields:** If a user asks to clear or remove a field's value, use 'null' as the value in the tool call.
+           
            Be concise and clear in your responses.
+           
            AVAILABLE TASK FIELDS for reference (use tool schema for actual updates):
            - name (text): Task title (User managed, AI reads only). Starts with verb.
            - description (textarea): AI writes final output/result here. Can overwrite.
@@ -152,33 +158,30 @@ export async function POST(req: NextRequest): Promise<Response> {
         const userAndAssistantMessages = messages.filter((m: CoreMessage) => m.role !== 'system');
         const finalMessages: CoreMessage[] = [systemMessage, ...userAndAssistantMessages];
 
-        // Define the update task tool dynamically
-        const updateTaskSchema = createUpdateTaskSchema();
+        // Define the update task tool dynamically using the Zod schema
+        const updateTaskSchema = createUpdateTaskSchema(modelId); // Pass modelId, rename back
+
+        // Define the update task tool using the Zod schema directly
         const updateTaskTool = tool({
-            description: 'Update specified fields of an existing task. Requires the PRIMARY Database ID (CUID format, e.g., clxj...).',
-            parameters: z.object({
-                task_id: z.string().describe(
-                  "REQUIRED: The unique primary identifier (ID) of the task to update. MUST be the CUID string (e.g., 'clxjqabc123xyz...') obtained from the task's 'id' field in the database. DO NOT use the optional numeric 'task_id' field or guess the ID."
-                ),
-                ...updateTaskSchema.shape, // Use the shape of the dynamically generated schema
-            }),
+            description: 'Update one or more fields of the specified task. Use this tool when asked to change, set, or update task details.',
+            parameters: updateTaskSchema, // Pass the Zod schema directly
             execute: async (params) => {
-                console.log('AI attempting to call updateTaskFields with RAW params:', JSON.stringify(params, null, 2)); // Log raw params from AI
-                // Ensure params are passed correctly, matching the expected UpdateTaskParams interface
-                // The executeUpdateTaskFields function now expects task_id
-                // Assert type here to satisfy TypeScript, as SDK handles validation
-                const result = await executeUpdateTaskFields(params as UpdateTaskParams);
-                console.log('Result from executeUpdateTaskFields:', result);
-                // Return a simple success/failure message or details for the AI
-                if (result.success) {
-                    console.log('Tool execution successful:', result.message);
-                    // Return the success message and potentially the updated task data
-                    // Make sure result.updatedTask matches the actual return structure
-                    return { success: true, message: result.message, data: result.data }; // <-- Use result.data
-                } else {
-                    console.error('Tool execution failed:', result.message, 'Error:', result.error);
-                    // Return the failure message and error details
-                    return { success: false, message: result.message, error: result.error };
+                console.log('AI attempting to call updateTaskFields with RAW params:', JSON.stringify(params, null, 2));
+                try {
+                    // Cast needed as the execute function expects a concrete type,
+                    // while params might be inferred more broadly by TS initially.
+                    const result = await executeUpdateTaskFields(params as UpdateTaskParams);
+                    console.log('Result from executeUpdateTaskFields:', result);
+                    if (result.success) {
+                        console.log('Tool execution successful:', result.message);
+                        return { success: true, message: result.message, data: result.data };
+                    } else {
+                        console.error('Tool execution failed:', result.message, 'Error:', result.error);
+                        return { success: false, message: result.message, error: result.error ?? 'Unknown execution error' };
+                    }
+                } catch (executionError) {
+                     console.error('Critical error during tool execution:', executionError);
+                     return { success: false, message: `Tool execution failed: ${getErrorMessage(executionError)}`, error: getErrorMessage(executionError) };
                 }
             },
         });
@@ -203,7 +206,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             temperature: providerOptions?.temperature,
             maxTokens: maxTokens, // Log maxTokens
             tools: { updateTaskFields: 'exists' }, // Indicate tool presence
-            toolChoice: 'auto',
+            toolChoice: 'auto', // Allow the AI to decide whether to use the tool
             ...(modelConfig.supportsReasoningEffort && providerOptions?.reasoningEffort && {
                 providerOptions: { openai: { reasoningEffort: providerOptions.reasoningEffort } }
             })
@@ -218,6 +221,8 @@ export async function POST(req: NextRequest): Promise<Response> {
             messages: finalMessages, 
             temperature: providerOptions?.temperature, // Use temperature from options
             maxTokens: maxTokens, // Pass validated maxTokens
+            tools: { updateTaskFields: updateTaskTool }, // Pass the correctly defined tool
+            toolChoice: 'auto', // Allow the AI to decide whether to use the tool
             // If the model supports reasoningEffort and it's provided, pass it via providerOptions
             // (Assuming OpenAI provider for models supporting this based on current config)
             ...(modelConfig.supportsReasoningEffort && providerOptions?.reasoningEffort && {

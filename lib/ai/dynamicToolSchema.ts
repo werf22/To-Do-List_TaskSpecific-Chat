@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TASK_FIELD_CONFIG, type TaskFieldConfig } from '@/config/TASK_FIELD_CONFIG';
+import { TASK_FIELD_CONFIG, TaskFieldConfig } from '@/config/TASK_FIELD_CONFIG';
 import { tool } from 'ai'; // Import the 'tool' function
 
 /**
@@ -8,124 +8,180 @@ import { tool } from 'ai'; // Import the 'tool' function
 export const UPDATE_TASK_FUNCTION_NAME = 'updateTaskFields';
 
 /**
- * Maps a field type string to a Zod schema type.
- * Handles basic types, arrays, dates, and specific known dropdowns.
- * NOTE: This function now returns the base Zod type without .optional(),
- * as the SDK seems to require all properties listed in the 'required' array.
- */
-function mapFieldTypeToZod(fieldConfig: TaskFieldConfig): z.ZodTypeAny {
-    // Use fieldConfig.type based on the TaskFieldConfig definition
-    switch (fieldConfig.type) {
-        case 'text':
-        case 'textarea':
-        // case 'ID': // ID type is not defined in the union, handled by fieldId check later
-        case 'url':
-        case 'email':
-        case 'phone':
-        case 'dropdown':
-        // case 'ASSIGNEE': // Not defined type
-        // case 'STATUS': // Not defined type
-        // case 'PRIORITY': // Not defined type
-        case 'ai_generated':
-            return z.string().describe(fieldConfig.description || `Value for ${fieldConfig.label}`);
-        case 'number':
-        case 'currency':
-        case 'rating':
-        case 'progress': // progress type exists
-            return z.number().describe(fieldConfig.description || `Value for ${fieldConfig.label}`); // Use general number for int/float/currency/rating/progress
-        // case 'FLOAT': // FLOAT type is not defined
-        // case 'INTEGER': // INTEGER is not defined, but handle as number
-        case 'checkbox': // CHECKBOX type exists
-            return z.boolean().describe(fieldConfig.description || `Value for ${fieldConfig.label}`);
-        case 'date':
-            // Return string to avoid 'format' in JSON schema. Add description for guidance.
-            return z.string().describe(fieldConfig.description ? `${fieldConfig.description} (Provide as ISO 8601 string: YYYY-MM-DD)` : 'Date (Provide as ISO 8601 string: YYYY-MM-DD)');
-        case 'datetime':
-            // Return string to avoid 'format' in JSON schema. Add description for guidance.
-            return z.string().describe(fieldConfig.description ? `${fieldConfig.description} (Provide as ISO 8601 string: YYYY-MM-DDTHH:mm:ssZ)` : 'DateTime (Provide as ISO 8601 string: YYYY-MM-DDTHH:mm:ssZ)');
-        case 'multi-select':
-        case 'tags':
-        // case 'COLLABORATORS': // Not defined type
-        // case 'PEOPLE': // Not defined type
-            return z.array(z.string()).describe(fieldConfig.description || `Value for ${fieldConfig.label}`);
-        // Handle types defined but not explicitly mapped yet or not suitable for AI update
-        case 'readonly':
-        case 'divider':
-        case 'file':
-        case 'subtasks':
-            // Returning z.any() here ensures it's part of the properties if needed by some logic,
-            // but the main createUpdateTaskSchema function filters these out anyway.
-            // For robustness, describe it as not intended for AI updates.
-            return z.any().describe('This field type is not intended for direct AI updates.');
-        default:
-            // Log unhandled types defined in the union if necessary
-            console.warn(`Unhandled field type in mapFieldTypeToZod: ${fieldConfig.type}. Defaulting to z.any().`);
-            return z.any().describe(fieldConfig.description || `Unhandled type: ${fieldConfig.type}`);
-    }
-}
-
-/**
- * Dynamically creates a Zod schema for the updateTaskFields tool parameters
- * based on the provided TASK_FIELD_CONFIG.
- * NOTE: All editable fields are included and marked as required in the resulting
- * JSON schema's 'required' array to comply with Vercel AI SDK/model expectations.
- * The actual update logic in the API route handles partial updates.
+ * Dynamically creates a Zod schema for updating task fields based on TASK_FIELD_CONFIG.
+ * Ensures that only fields defined in the config are included and applies appropriate Zod types.
+ * Makes fields optional to allow partial updates, minimizing token usage.
+ * Conditionally simplifies the schema for 'tags' field for 'o4-mini' model.
+ * Allows null for clearing specific fields like dates.
  *
- * @returns A Zod object schema representing the tool parameters.
+ * @param {string} modelId - The ID of the AI model being used (e.g., 'o4-mini', 'gpt-4.1').
+ * @returns {z.ZodObject<any>} A Zod object schema for task update parameters.
  */
-export function createUpdateTaskSchema(): z.ZodObject<any, any> {
-    const shape: Record<string, z.ZodTypeAny> = {
-        // Task ID is always required for updates.
-        task_id: z.string().describe('The unique identifier of the task to update. THIS IS ALWAYS REQUIRED.'),
-    };
+export const createUpdateTaskSchema = (modelId: string): z.ZodObject<any> => {
+	const shape: Record<string, z.ZodTypeAny> = {
+		task_id: z
+			.string()
+			.describe(
+				'The unique identifier of the task to update. THIS IS ALWAYS REQUIRED.',
+			),
+	};
 
-    Object.entries(TASK_FIELD_CONFIG).forEach(([fieldId, fieldConfig]) => {
-        // Check using fieldId and fieldConfig.editable
-        // Skip non-editable fields or fields AI shouldn't modify based on name convention or type
-        if (!fieldConfig.editable ||
-            fieldId === 'task_id' || // Already handled
-            fieldId === 'id' || // Internal ID
-            fieldId === 'created_at' || // Auto-managed
-            fieldId === 'last_modified_at' || // Auto-managed
-            fieldId === 'completed_at' || // Often managed by specific actions
-            fieldConfig.type === 'readonly' || // Not editable
-            fieldConfig.type === 'divider' || // Not data
-            fieldConfig.type === 'file' || // Complex type, handle differently
-            fieldConfig.type === 'subtasks' // Complex type, handle differently
-        ) {
-            return; // Skip this field
+    // Correctly iterate over the TASK_FIELD_CONFIG object using Object.entries
+	Object.entries(TASK_FIELD_CONFIG).forEach(([fieldId, config]: [string, TaskFieldConfig]) => {
+		// Skip fields that should not be directly updatable by AI via this tool
+		if (
+			[
+				'task_id',          // Handled explicitly above
+                'name',             // AI should not rename tasks via this tool
+                'description',      // This is AI output, not input
+                'notes',            // This is AI working space, not direct input
+                'task_comments',    // Handled via chat interface
+                'created_at',       // System managed
+                'last_modified_at', // System managed
+                'completed_at',     // System managed (use 'status' instead?)
+                'assignee',         // Complex object/relation, handle separately if needed
+                'related_tasks_id', // Complex relation, handle separately if needed
+                'ai_agent_status_log', // System managed
+                'ai_output_result_link', // System managed
+			].includes(fieldId) // Use fieldId (the key) for the check
+		) {
+			return;
+		}
+
+		let zodType: z.ZodTypeAny;
+        let isNullable = false;
+        const isO4Mini = modelId === 'o4-mini';
+
+		switch (config.type) { // Access type via config.type
+			case 'text':
+			case 'textarea':
+			case 'url':
+			case 'email':
+			case 'phone':
+				zodType = z.string().describe(config.description || config.label); // Use config.label as fallback
+                // Maybe allow null for text? Let's keep it simple for now.
+				break;
+			case 'number':
+			case 'currency':
+				zodType = z.number().describe(config.description || config.label); // Use config.label
+                // isNullable = true; // Optional: allow null to clear numbers
+				break;
+			case 'date': // Handle 'date' and potentially 'datetime' if needed
+            case 'datetime':
+				zodType = z
+					.string()
+					.describe(config.description || config.label); // Use config.label
+				isNullable = true; // Mark date as potentially nullable
+				break;
+			case 'checkbox':
+				zodType = z.boolean().describe(config.description || config.label); // Use config.label
+                // Booleans typically aren't nullable in forms, false means unchecked.
+				break;
+			case 'dropdown':
+				if (config.options && config.options.length > 0) {
+                    // Add explicit type for opt
+					const enumOptions = config.options.map((opt: string | number | boolean) => // Access options via config.options
+						String(opt),
+					) as [string, ...string[]];
+
+					// Simplify schema for o4-mini if too many options
+					if (isO4Mini && enumOptions.length > 50) {
+						zodType = z.string().describe(
+							`${config.description || config.label} (Provide one of the following values: ${enumOptions.slice(0, 50).join(', ')}${enumOptions.length > 50 ? '...' : ''})`,
+						);
+					} else if (enumOptions.length > 0) {
+						zodType = z
+							.enum(enumOptions)
+							.describe(config.description || config.label); // Use config.label
+                            // isNullable = true; // Optional: allow null to clear dropdown selection
+					} else {
+						zodType = z.string().describe(
+							`${config.description || config.label} (Dropdown - No options defined)`,
+						);
+					}
+				} else {
+					zodType = z.string().describe(
+						`${config.description || config.label} (Dropdown - Options missing)`,
+					);
+				}
+				break;
+			case 'multi-select':
+            case 'tags': // Treat 'tags' similarly to multi-select based on previous logic
+				if (config.options && config.options.length > 0) {
+                    // Add explicit type for opt
+					const enumOptions = config.options.map((opt: string | number | boolean) => // Access via config.options
+						String(opt),
+					) as [string, ...string[]];
+
+					// Simplify schema for o4-mini if too many options
+					if (isO4Mini && enumOptions.length > 50) {
+						zodType = z.array(z.string()).describe(
+							`${config.description || config.label} (Provide an array containing zero or more of the following values: ${enumOptions.slice(0, 50).join(', ')}${enumOptions.length > 50 ? '...' : ''})`,
+						);
+					} else if (enumOptions.length > 0) {
+						// For other models or other multi-select fields, use the strict enum array
+						zodType = z
+							.array(z.enum(enumOptions))
+							.describe(config.description || config.label); // Use config.label
+					} else {
+                        // Fallback if options are empty
+						zodType = z.array(z.string()).describe(
+							`${config.description || config.label} (Multi-select - No options defined)`,
+						);
+					}
+				} else {
+                    // Fallback if options missing entirely
+					zodType = z.array(z.string()).describe(
+						`${config.description || config.label} (Multi-select - Options missing)`,
+					);
+				}
+                // Nullable array doesn't make much sense, empty array `[]` means no selection.
+				break;
+            // Add cases for other types if they need specific handling and are updatable
+            case 'rating':
+                zodType = z.number().int().min(0).max(5).describe(config.description || config.label);
+                // isNullable = true; // Allow null to clear rating?
+                break;
+            case 'progress':
+                zodType = z.number().min(0).max(100).describe(config.description || config.label);
+                // isNullable = true; // Allow null to clear progress?
+                break;
+			default:
+                // Log unhandled types but don't add them to the schema for AI updates
+                // console.warn(`Unhandled or non-updatable field type in dynamicToolSchema: ${fieldId} (${config.type})`);
+                // Use return to skip to the next item in forEach, instead of continue
+                return;
+		}
+
+		// Conditionally apply .optional() and .nullable() based on modelId
+        let finalType: z.ZodTypeAny;
+
+        if (isO4Mini) {
+            // For o4-mini, schema requires fields to be non-optional and non-nullable.
+            // We will handle potential clearing intent (e.g., empty string) later in the execution logic.
+            finalType = zodType; // Always use the base type, strictly required.
+        } else {
+            // For other models (e.g., gpt-4.1), allow partial updates by making fields optional.
+            if (isNullable) {
+                // Nullable AND optional
+                finalType = zodType.nullable().optional();
+            } else {
+                // Optional only
+                finalType = zodType.optional();
+            }
         }
 
-        // Get the base Zod type
-        let zodType = mapFieldTypeToZod(fieldConfig);
+		shape[fieldId] = finalType; // Assign using fieldId as the key
+	});
 
-        // Add description if not already added by mapFieldTypeToZod or if it's generic
-        if (fieldConfig.description && !zodType.description) {
-             zodType = zodType.describe(fieldConfig.description);
-        } else if (!zodType.description) {
-            // Add a fallback description if none exists
-            zodType = zodType.describe(`Value for ${fieldConfig.label || fieldId}`);
-        }
-
-        // Add the field to the shape - NO .optional() here
-        shape[fieldId] = zodType;
-    });
-
-    // Create the Zod object schema from the shape
-    const schema = z.object(shape);
-
-    // console.log('Generated Zod Schema for updateTaskFields:', schema.shape);
-    // console.log('Generated JSON Schema:', JSON.stringify(schema.openapi('updateTaskFields'), null, 2));
-
-
-    return schema;
-}
+	return z.object(shape);
+};
 
 /**
  * Defines the AI tool for updating task fields using a dynamically generated schema.
  */
 export const updateTaskFieldsTool = tool({
   description: 'Update one or more fields of a specific task. Use this tool when the user asks to change, modify, set, or update any property of the current task.',
-  parameters: createUpdateTaskSchema(),
+  parameters: createUpdateTaskSchema('o4-mini'), // Pass 'o4-mini' as the modelId
   // execute: async (args) => { ... } // Execute logic is handled in the API route
 });

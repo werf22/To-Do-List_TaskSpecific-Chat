@@ -159,6 +159,19 @@ This document tracks major completed features and milestones during the developm
     *   Fixed a typo (`MODEL_IDS.GPT_4_1` vs `MODEL_IDS.GPT41`) in the conditional logic within `AIChatInterface.tsx`.
     *   Validated successful parameter passing via browser developer tools (network tab) and backend logs.
 
+## Session: 2025-04-24 (o4-mini Compatibility Fix)
+
+*   **[DONE]** Fix `o4-mini` AI Tool Schema Compatibility:
+    *   Identified two issues preventing `o4-mini` from using the `updateTaskFields` tool:
+        1.  Schema validation errors due to optional/nullable fields not having an explicit `type` key required by the model.
+        2.  After making fields required, encountered errors due to exceeding the ~500 total enum value limit for structured outputs (caused by fields like `tags`, `required_skills` having many options).
+    *   Modified `lib/ai/dynamicToolSchema.ts` (`createUpdateTaskSchema`):
+        *   For `o4-mini`, fields remain required and non-nullable.
+        *   For `o4-mini`, if a `dropdown`, `multi-select`, or `tags` field has > 50 options, its schema type is simplified to `z.string()` or `z.array(z.string())`, with options listed in the description.
+        *   For other models, fields remain optional/nullable for partial updates.
+    *   This successfully resolved both errors, enabling `o4-mini` to use the `updateTaskFields` tool.
+*   **[DONE]** Verified that the fix allows `o4-mini` to successfully use the `updateTaskFields` tool.
+
 ## Completed Milestones & Tasks Log
 
 *   **[2025-04-24]** AI - Task Update Tool (`updateTaskFields`) Implementation:
@@ -191,6 +204,7 @@ This document tracks major completed features and milestones during the developm
 
 *(Future entries will be added below as phases/features are completed)*
 
+_Last updated: 2025-04-24 (Fixed o4-mini tool compatibility)_
 _Last updated: 2025-04-24 (AI Chat Parameter Refinement)_
 _Last updated: 2025-04-22 (Verified DELETE API Endpoint and Removed Redundant Route)_
 _Last updated: 2025-04-22 (Task Deletion System)_

@@ -91,6 +91,7 @@ All files were reviewed and placed according to the latest documentation and pro
 - **2025-04-22:** Setup Jest testing configuration for unit tests
 - **2025-04-22:** Implemented comprehensive task deletion functionality with individual and batch operations
 - **2025-04-22:** Created emergency task deletion system with direct database access for handling edge cases
+- **2025-04-24:** Successfully resolved schema validation issues preventing the `o4-mini` model from reliably using the `updateTaskFields` tool.
 
 ## Current Status (as of 2025-04-23)
 
@@ -107,6 +108,11 @@ All files were reviewed and placed according to the latest documentation and pro
 *   Focused on debugging and fixing several React lifecycle errors (update during render, max update depth), hydration mismatches, and TypeScript type errors primarily affecting the filtering system (`FilterBar`, `HomePage`) and the task detail page (`TaskDetailPage`).
 *   The application should now be more stable regarding these issues. Next steps involve testing these fixes.
 *   Refined `config/TASK_FIELD_CONFIG.ts` to ensure `dependents` and `related_tasks` use the `textarea` type for better AI text processing compatibility.
+
+## Recent Activity (2025-04-24)
+
+*   **AI Chat Parameter Refinement:** Correctly configured AI model parameter handling (`maxTokens`, `temperature`, `reasoningEffort`) in frontend (`AIChatInterface.tsx`) and backend (`/api/ai/chat`). `maxTokens` is now sent conditionally only for compatible models (e.g., `gpt-4.1`).
+*   **Fix `o4-mini` Tool Compatibility:** Successfully resolved schema validation issues (`missing 'type' key`, `too many enum values`) preventing the `o4-mini` model from reliably using the `updateTaskFields` tool. Modified `lib/ai/dynamicToolSchema.ts` to generate a simplified schema (using basic strings for large enums) specifically for `o4-mini`, while retaining detailed schemas for other models.
 
 ## Getting Started
 
@@ -130,4 +136,5 @@ All files were reviewed and placed according to the latest documentation and pro
 
 ---
 
+_Last updated: 2025-04-24 (Fixed o4-mini tool compatibility, Refined AI Chat Parameters, and Resolved o4-mini model compatibility with updateTaskFields tool)_
 _Last updated: 2025-04-22 (Comprehensive task deletion system implementation)_

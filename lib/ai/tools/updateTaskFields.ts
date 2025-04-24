@@ -111,35 +111,51 @@ export async function executeUpdateTaskFields(params: UpdateTaskParams): Promise
   }
 }
 
-// Helper function to transform update data (e.g., date strings to Date objects)
+/**
+ * Helper function to transform update data (e.g., date strings to Date objects)
+ * and filter out undefined values to prevent accidental clearing of fields.
+ */
 function transformUpdateData(data: Record<string, any>): Record<string, any> {
-  const transformedData: Record<string, any> = {};
-  for (const [key, value] of Object.entries(data)) {
-    // Example: Convert valid ISO date strings to Date objects for Prisma
-    // Adjust this logic based on how dates are defined in TASK_FIELD_CONFIG and schema.prisma
-    // We check if value is a non-null string that looks like a date.
-    if (typeof value === 'string' && (key.includes('date') || key.includes('Date'))) {
-        try {
-            const dateValue = new Date(value);
-            // Check if the date is valid before assigning
-            if (!isNaN(dateValue.getTime())) {
-                transformedData[key] = dateValue;
-            } else {
-                // Handle invalid date strings if necessary, maybe skip or log
-                console.warn(`[executeUpdateTaskFields] Invalid date string for field ${key}: ${value}`);
-                // Optionally, keep the original value or set to null if schema allows
-                 transformedData[key] = null; // Assuming nullable field for invalid dates
+    const filteredData: Record<string, any> = {};
+
+    for (const key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+            const value = data[key];
+
+            // Skip fields with undefined values entirely
+            if (value === undefined) {
+                continue;
             }
-        } catch (e) {
-            console.warn(`[executeUpdateTaskFields] Error parsing date string for field ${key}: ${value}`, e);
-            transformedData[key] = null; // Fallback to null on parsing error
+
+            // Preserve null values (used for explicitly clearing fields)
+            // Transform date/datetime strings to Date objects if they are valid
+            if ((key === 'due_date' || key === 'start_date' || key === 'completion_date') && typeof value === 'string') {
+                const date = new Date(value);
+                // Check if the date is valid before assigning
+                if (!isNaN(date.getTime())) {
+                    filteredData[key] = date;
+                } else {
+                    // Handle invalid date strings if necessary (e.g., log, skip, or keep as string)
+                    console.warn(`[transformUpdateData] Invalid date string for ${key}: ${value}. Skipping transformation.`);
+                    // Decide whether to keep the original invalid string or skip the field
+                    // filteredData[key] = value; // Option: Keep original string
+                }
+            } else if (key === 'created_at' || key === 'last_modified_at') {
+                // Potentially handle other datetime fields if needed, though these are usually auto-managed
+                const date = new Date(value);
+                if (!isNaN(date.getTime())) {
+                     filteredData[key] = date;
+                } else {
+                    console.warn(`[transformUpdateData] Invalid datetime string for ${key}: ${value}. Skipping transformation.`);
+                }
+            } else {
+                // Keep other values (including null, numbers, strings, booleans, arrays)
+                filteredData[key] = value;
+            }
         }
-    } else if (value === null && (key.includes('date') || key.includes('Date'))) {
-        // Explicitly handle null to clear date fields if schema allows nullable DateTime
-        transformedData[key] = null;
-    } else if (value !== undefined) { // Only include non-undefined values
-        transformedData[key] = value;
     }
-  }
-  return transformedData;
+
+    console.log('[transformUpdateData] Original data:', data);
+    console.log('[transformUpdateData] Filtered & Transformed data:', filteredData);
+    return filteredData;
 }

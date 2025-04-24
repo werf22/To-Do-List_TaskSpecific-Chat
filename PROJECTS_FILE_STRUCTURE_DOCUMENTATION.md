@@ -48,6 +48,7 @@
             -   `updateTaskFields.ts`: Defines the `updateTaskFieldsTool`, its Zod schema (`updateTaskFieldsSchema`), and the `executeTaskUpdate` function for performing the database update.
         -   `/ai/contextHelper.ts`: **(NEW)** Provides helper functions related to preparing context for AI interactions.
             -   `getContextForTask`: Fetches a task by ID from Prisma and formats its key details into a string, providing context for the AI about the specific task being discussed.
+        -   `/ai/dynamicToolSchema.ts`: **(UPDATED 2025-04-24)** Dynamically generates the Zod schema for the `updateTaskFields` tool based on `TASK_FIELD_CONFIG.ts`. **Crucially, it now includes logic to adapt the schema based on the AI model ID (`modelId`)**: for `o4-mini`, it enforces required fields and simplifies the schema type (e.g., to `z.string()`) for fields with a large number of enum options (>50) to avoid validation errors, while maintaining optional/nullable fields and detailed enum types for other models.
 
 ### `/pages` - Legacy Pages Router (Special Pages)
 *   Contains standalone emergency/utility pages using the Next.js Pages Router.
@@ -153,7 +154,8 @@
 *   [2025-04-23 ~10:15] Implemented full-text search functionality via raw SQL query in `/api/tasks/route.ts` and integrated with `FilterBar.tsx`.
 *   [2025-04-23 ~13:30] Implemented AI tool `updateTaskFields` (`lib/ai/tools/updateTaskFields.ts`) and context helper (`lib/ai/contextHelper.ts`). Integrated tool usage into `/api/ai/chat/route.ts`.
 *   [2025-04-24 ~13:22] Refined AI parameter handling (`maxTokens`, `temperature`, `reasoningEffort`) in `AIChatInterface.tsx` and `/api/ai/chat/route.ts`, implementing conditional logic for `maxTokens` based on the selected model.
+*   [2025-04-24 ~14:45] Modified `lib/ai/dynamicToolSchema.ts` to handle model-specific schema generation, fixing `o4-mini` compatibility issues with the `updateTaskFields` tool (missing type key, too many enums).
 
-_Last updated: 2025-04-24 13:22_
+_Last updated: 2025-04-24 14:45_
 
 [EndOfDocument PROJECTS_FILE_STRUCTURE_DOCUMENTATION.md]
